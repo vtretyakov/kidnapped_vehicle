@@ -42,7 +42,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
         particle.x = dist_x(gen);
         particle.y = dist_y(gen);
         particle.theta = dist_theta(gen);
-        particle.weight = 1;
+        particle.weight = 1.0;
         
         particles.push_back(particle);
 
@@ -93,6 +93,22 @@ void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::ve
 	//   observed measurement to this particular landmark.
 	// NOTE: this method will NOT be called by the grading code. But you will probably find it useful to 
 	//   implement this method and use it as a helper during the updateWeights phase.
+    
+    // For each observation, search the closest predicted distance
+    for (unsigned int i = 0; i < observations.size(); i++){
+    
+        double min_dist = 100000; // start with an unrealisticly high distance
+        for (unsigned int j = 0; j < predicted.size(); j++){
+        
+            double d = dist(predicted[j].x, predicted[j].y, observations[i].x, observations[i].y);
+            // if it is closest, update minimum distance and id.
+            if (d < min_dist)
+            {
+                min_dist = d;
+                observations[i].id = predicted[j].id;
+            }
+        }
+    }
 
 }
 
@@ -108,6 +124,74 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 	//   and the following is a good resource for the actual equation to implement (look at equation 
 	//   3.33
 	//   http://planning.cs.uiuc.edu/node99.html
+    
+    double std_x = std_landmark[0];
+    double std_y = std_landmark[1];
+    
+    // Accumulated weights for normalization
+    double weight_acc = 0;
+    
+    // Clear ParticleFilter weights
+    weights.clear();
+    
+    for (int i = 0; i < num_particles; i++) {
+        
+        double p_x = particles[i].x;
+        double p_y = particles[i].y;
+        double p_theta = particles[i].theta;
+        // Find landmarks in particle's range
+        vector<LandmarkObs> predictions;
+        for(unsigned int j = 0; j < map_landmarks.landmark_list.size(); j++) {
+            double l_x = map_landmarks.landmark_list[j].x_f;
+            double l_y = map_landmarks.landmark_list[j].y_f;
+            int l_id = map_landmarks.landmark_list[j].id_i;
+            double distance = dist(l_x, l_y, p_x, p_y);
+            if ( distance <= sensor_range ) {
+                predictions.push_back(LandmarkObs{ l_id, l_x, l_y });
+            }
+        }
+        
+        // Convert observations from vehicle to map coordinates
+        vector<LandmarkObs> global_observations;
+        for(unsigned int j = 0; j < observations.size(); j++) {
+            double transformed_x = cos(p_theta)*observations[j].x - sin(p_theta)*observations[j].y + p_x;
+            double transformed_y = sin(p_theta)*observations[j].x + cos(p_theta)*observations[j].y + p_y;
+            global_observations.push_back(LandmarkObs{ observations[j].id, transformed_x, transformed_y });
+        }
+        
+        // Observation association to landmark
+        dataAssociation(predictions, global_observations);
+        
+        // Initialize probability
+        double prob = 1;
+        
+        // Calculate the posterior probability for each observation
+        for (unsigned int j = 0; j < global_observations.size(); j++){
+            // Search for predictions associated with this landamark id:
+            int id = global_observations[j].id;
+            double obs_x = global_observations[j].x;
+            double obs_y = global_observations[j].y;
+            
+            for (unsigned int n = 0; n < predictions.size(); n++){
+                if(predictions[n].id == id){
+                    prob *= bivariateGaussianPdf(obs_x, obs_y, predictions[n].x, predictions[n].y, std_x, std_y, 0);
+                    break;//stop further searching, we've found
+                }
+            }
+        }
+        particles[i].weight = prob;
+        
+        // Sum up weights
+        weight_acc += prob;
+    }
+    
+    // Normalize weights
+    for (int i = 0; i < num_particles; i++)
+    {
+        particles[i].weight /= weight_acc;
+        weights.push_back(particles[i].weight);
+    }
+    
 }
 
 void ParticleFilter::resample() {
@@ -156,4 +240,20 @@ string ParticleFilter::getSenseY(Particle best)
     string s = ss.str();
     s = s.substr(0, s.length()-1);  // get rid of the trailing space
     return s;
+}
+
+double ParticleFilter::bivariateGaussianPdf(double x, double y, double mean_x, double mean_y, double std_x, double std_y, double rho){
+    
+    if (fabs(rho) >= 1) rho = 0;//avoid devision by zero with invalid input (-1 < rho < 1)
+    double std_x_2 = std_x*std_x;
+    double std_y_2 = std_y*std_y;
+    double std_xy = std_x*std_y;
+    double rho_2 = rho*rho;
+    double denom = 2*M_PI*std_xy*sqrt(1-rho_2);
+    double dx = x-mean_x;
+    double dy = y-mean_y;
+    double exponent = ( dx*dx/std_x_2 + dy*dy/std_y_2 - 2*rho*dx*dy/std_xy )/(2*(1-rho_2));
+    double prob = exp(-exponent)/denom;
+    
+    return prob;
 }

@@ -115,6 +115,18 @@ public:
 	const bool initialized() const {
 		return is_initialized;
 	}
+    
+    /**
+    * bivariateGaussianPdf Calculates bivariate normal distribution
+    * @param x position x [m]
+    * @param y position y [m]
+    * @param mean_x mean x value
+    * @param mean_y mean y value
+    * @param std_x standard deviation of x [m]
+    * @param std_y standard deviation of y [m]
+    * @param rho Pearson correlation coefficient
+    **/
+    double bivariateGaussianPdf(double x, double y, double mean_x, double mean_y, double std_x, double std_y, double rho);
 };
 
 
