@@ -139,8 +139,24 @@ The things the grading code is looking for are:
 
 2. **Performance**: your particle filter should complete execution within the time of 100 seconds.
 
-## How to write a README
-A well written README file can enhance your project and portfolio.  Develop your abilities to create professional README files by completing [this free course](https://www.udacity.com/course/writing-readmes--ud777).
+# [Rubric](https://review.udacity.com/#!/rubrics/747/view) points
 
+## Accuracy
 
+### Does your particle filter localize the vehicle to within the desired accuracy?
 
+The accuracy can be increased by increasing the [number of the particles](./src/particle_filter.cpp#L29). I started with 10 and it was sufficient to pass the automatic checking criteria.
+
+![Simulator run result](img/result.png)
+
+## Performance
+
+### Does your particle run within the specified time of 100 seconds?
+
+With 10 particles on my machine time required to process all data was 50.72 seconds.
+
+## General
+
+### Does your code use a particle filter to localize the robot?
+
+It does to the best of my knowledge. Please find the implementation in [src/particle_filter.cpp](./src/particle_filter.cpp).
